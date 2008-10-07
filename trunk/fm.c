@@ -17,6 +17,7 @@
 int num_lines=0;
 int num_chars=0;
 polytope pgm;
+extern FILE *yyin;
 extern int yyparse(void);
 
 /*
@@ -100,16 +101,6 @@ variable_node *valid_regex_variable(polytope p,char *varname){
 	  return vn;
   }
   return 0;
-}
-/* THE FOLLOWING IS BUGGY */
-void reverse_constraints(polytope *p){
-  constraint *c;
-  for (c = p->constraint_list; c; c = c->previous){
-	constraint *b;
-	b=c->previous;
-	c->previous=c->next;
-	c->next=b;
-  }
 }
 void extract_vars(polytope *p){
   constraint *c;
@@ -276,41 +267,47 @@ void fm(polytope *p){
   int nb_constraints = p->nb_constraints;
   int nb_variables = p->nb_variables;
   for (iv=0; iv<nb_variables; iv++){
-	/* for each variable, check if we keep it or not and act */
-	vn=p->variable_array[iv];
-	if ((vn->keep)) 
-	  continue;
-	else {
-	  int 	  i=vn->column_index;
-	  if (verbose) printf("We will eliminate %s at position %d\n", 
-						  vn->varname,
-						  vn->column_index);
-	  for(rp=p->row_list;rp;rp=rp->next){
-		double pv;							 /* Positive  */
-		if ((pv=gsl_vector_get(rp->v,i))>0){ /* Found a positive coefficient */
-		  rp->deleterow=1;						 /* To be deleted at end */
-		  if (pv != 1.0)
-			gsl_vector_scale(rp->v,1/pv);
-		  if (verbose) display_rows(*p);
-		  for(rn=p->row_list;rn;rn=rn->next){
-			double nv;							 /* Negative */
-			if ((nv=gsl_vector_get(rn->v,i))<0){ /* Negative coefficient */
-			  rn->deleterow=1;						 /* To be deleted at end */
-			  if (nv != -1.0)
-				gsl_vector_scale(rn->v,-1/nv);
-			  if (verbose) printf("positive %f negative %f\n",pv,nv);
-			  /* Do the work */
-			  fm_eliminate_pair(p,rp,rn);
-			}
-		  }		  
-		}
-	  }
-	  nb_constraints=delete_processed_rows(p);
+    /* for each variable, check if we keep it or not and act */
+    vn=p->variable_array[iv];
+    if ((vn->keep)) 
+      continue;
+    else {
+      int 	  i=vn->column_index;
+      if (verbose) printf("We will eliminate %s at position %d\n", 
+			  vn->varname,
+			  vn->column_index);
+      for(rp=p->row_list;rp;rp=rp->next){
+	double pv;							 
+	/* Positive  */
+	if ((pv=gsl_vector_get(rp->v,i))>0){ 
+	  /* Found a positive coefficient */
+	  rp->deleterow=1;						 
+	  /* To be deleted at end */
+	  if (pv != 1.0)
+	    gsl_vector_scale(rp->v,1/pv);
+	  if (verbose) display_rows(*p);
+	  for(rn=p->row_list;rn;rn=rn->next){
+	    double nv;							 
+	    /* Negative */
+	    if ((nv=gsl_vector_get(rn->v,i))<0){ 
+	      /* Negative coefficient */
+	      rn->deleterow=1;						 
+	      /* To be deleted at end */
+	      if (nv != -1.0)
+		gsl_vector_scale(rn->v,-1/nv);
+	      if (verbose) printf("positive %f negative %f\n",pv,nv);
+	      /* Do the work */
+	      fm_eliminate_pair(p,rp,rn);
+	    }
+	  }		  
 	}
+      }
+      nb_constraints=delete_processed_rows(p);
+    }
   }
 }
 /* Try to use CDDLIB to do that */
-void project(polytope *p){
+void project(polytope *p,FILE *outfile,int formatcdd){
   row_node *rn;
   variable_node *vn;
   double val;
@@ -330,61 +327,63 @@ void project(polytope *p){
   M=dd_CreateMatrix(p->nb_rows,p->nb_variables+1);
   M->representation=dd_Inequality;
   M->numbtype=dd_GetNumberType("real");
-
+  
   for(i=0,rn=p->row_list; rn; i++,rn=rn->next){
-	double r;
-	if (rn->direction<0)
-	  r=-1.0;
-	else if (rn->direction>0)
-	  r=1.0;
-	else {
-	  r=-1.0;
-	  set_addelem(M->linset,i+1);
-	}
-    for(j=0;j<p->nb_variables;j++){
-	  dd_set_d(M->matrix[i][j+1],(r)*gsl_vector_get(rn->v,j));
+    double r;
+    if (rn->direction<0)
+      r=-1.0;
+    else if (rn->direction>0)
+      r=1.0;
+    else {
+      r=-1.0;
+      set_addelem(M->linset,i+1);
     }
-	dd_set_d(M->matrix[i][0],gsl_vector_get(rn->v,p->nb_variables));
+    for(j=0;j<p->nb_variables;j++){
+      dd_set_d(M->matrix[i][j+1],(r)*gsl_vector_get(rn->v,j));
+    }
+    dd_set_d(M->matrix[i][0],gsl_vector_get(rn->v,p->nb_variables));
   }
-  dd_WriteMatrix(stdout, M);
+  /*dd_WriteMatrix(outfile, M);*/
   /* need to set the variables to eliminate */
   d=p->nb_variables+1;
   set_initialize(&delset,d);
   for (i=0; i<p->nb_variables; i++){
-	/* for each variable, check if we keep it or not and act */
-	vn=p->variable_array[i];
-	if (!(vn->keep)) {
-	  long t=i+2;
-	  set_addelem(delset,t);
-	}
+    /* for each variable, check if we keep it or not and act */
+    vn=p->variable_array[i];
+    if (!(vn->keep)) {
+      long t=i+2;
+      set_addelem(delset,t);
+    }
   }
   M1=dd_BlockElimination(M, delset, &err);
   if (err!=dd_NoError) dd_WriteErrorMessages(stderr,err);
   dd_MatrixCanonicalize(&M1,&impl_linset,&redset,&newpos,&err);
-
-  dd_WriteMatrix(stdout, M1);
-  /* Print it for now */
-  printf("\n After elimination\n");
-  for(i=0; i<M1->rowsize; i++){
-	vn=p->variable_list;
-	for(j=1; j<M1->colsize; j++){
-	  val=(-1.0)*dd_get_d(M1->matrix[i][j]);
-	  while(!vn->keep)
-		vn=vn->next;
-	  if (val){
-		printf("%+5.5f ",val );
-		printf("%-4s ", vn->varname);
-	  } else {
-		printf("              ");
-	  }
+  
+  if (formatcdd)
+    dd_WriteMatrix(outfile, M1);
+  else {
+    /* Print it for now */
+    for(i=0; i<M1->rowsize; i++){
+      vn=p->variable_list;
+      for(j=1; j<M1->colsize; j++){
+	val=(-1.0)*dd_get_d(M1->matrix[i][j]);
+	while(!vn->keep)
 	  vn=vn->next;
+	if (val){
+	  fprintf(outfile,"%+5.5f ",val );
+	  fprintf(outfile,"%-4s ", vn->varname);
+	} else {
+	  fprintf(outfile,"              ");
 	}
-	val=dd_get_d(M1->matrix[i][0]);
-	if (set_member(i+1,M1->linset))
-	  printf("== %5.f \n",val );
-	else
-	  printf("<= %5.f \n",val );
-  }
+	vn=vn->next;
+      }
+      val=dd_get_d(M1->matrix[i][0]);
+      if (set_member(i+1,M1->linset))
+	fprintf(outfile,"== %5.5f \n",val );
+      else
+	fprintf(outfile,"<= %5.5f \n",val );
+    }
+  } /* end of print */
   dd_FreeMatrix(M);
   dd_FreeMatrix(M1);
 }			  
@@ -392,36 +391,62 @@ void project(polytope *p){
 /*
   Mainline 
 */
+void usage(char *pgmname){
+  printf("Usage is %s -i infile -o outfile (-[pr] var)+ [-f [0|1]]\n",pgmname);
+  printf("Order of the parameters is important!\n");
+  printf("-p var (exact name) or -r var (beginning of name)\n");
+  printf("-f 1 for cdd format (-f 0 is default LP format)\n");
+  
+  return;
+}
 int main(int argc, char **argv)
 {
+  FILE *outfile=stdout;		/* Default is stdout */
   int verbose=0;
   int switchval;
+  int formatcdd=0;		/* Format: Fukuda=1 LP=0 */
   variable_node *vn;
-  yyparse();
-  /*reverse_constraints(&pgm);*/
-  extract_vars(&pgm);
-  while((switchval=getopt(argc, argv, "vr:p:")) != -1){
+  while((switchval=getopt(argc, argv, "hvr:p:i:o:f:")) != -1){
     switch(switchval){
-	case 'h':
-	  printf("Usage is %s -p var -r varhead -v (for verbose) <file\n"
-			 ,argv[0]);
-	  exit(0);
-	case 'v': verbose++;
-	  printf("The full polytope before elimination is\n");
-	  display_polytope(pgm);  
-	  break;
+    case 'h':
+      usage(argv[0]);
+      exit(0);
+    case 'i':
+      if ((yyin=fopen(optarg,"r"))==0){
+	perror(optarg);
+	exit(0);
+      }
+      yyparse();
+      extract_vars(&pgm);
+      break;
+    case 'o':
+      if ((outfile=fopen(optarg,"w"))==0){
+	perror(optarg);
+	exit(0);
+      }
+      break;
+    case 'f':
+      formatcdd=atoi(optarg);
+      break;
+    case 'v': verbose++;
+      display_polytope(pgm);  
+      break;
     case 'p': 
       if ((vn=valid_variable(optarg))){
-		if (verbose) printf("Projecting on %s\n",vn->varname);
-		vn->keep=1;
+	if (verbose) printf("Projecting on %s\n",vn->varname);
+	vn->keep=1;
       } else {
-		if (verbose) printf("variable %s is not in use!\n",optarg);
+	if (verbose) printf("variable %s is not in use!\n",optarg);
       }
-	case 'r':
-	  while((vn=valid_regex_variable(pgm,optarg))){
-		if (verbose) printf("Projecting on %s\n",vn->varname);
-		vn->keep=1;
-	  }
+    case 'r':
+      while((vn=valid_regex_variable(pgm,optarg))){
+	if (verbose) printf("Projecting on %s\n",vn->varname);
+	vn->keep=1;
+      }
+      break;
+    default:
+      usage(argv[0]);
+      exit(0);
     }
   }
   
@@ -434,9 +459,9 @@ int main(int argc, char **argv)
   fm(&pgm);
   printf("The rows after elimination are\n");
   display_rows(pgm);
+  return 0;
   */
-  
-  project(&pgm);				/* Using CDD */
+  project(&pgm,outfile,formatcdd);				/* Using CDD */
   return 0;
 }
 int yyerror(char *msg)
