@@ -329,19 +329,19 @@ void project(polytope *p,FILE *outfile,int formatcdd){
   M->numbtype=dd_GetNumberType("real");
   
   for(i=0,rn=p->row_list; rn; i++,rn=rn->next){
-    double r;
+    double ra,rb;
     if (rn->direction<0)
-      r=-1.0;
+      {ra=-1.0;rb=1.0;}
     else if (rn->direction>0)
-      r=1.0;
+      {ra=1.0;rb=-1.0;}      
     else {
-      r=-1.0;
+      {ra=-1.0;rb=1.0;}
       set_addelem(M->linset,i+1);
     }
     for(j=0;j<p->nb_variables;j++){
-      dd_set_d(M->matrix[i][j+1],(r)*gsl_vector_get(rn->v,j));
+      dd_set_d(M->matrix[i][j+1],(ra)*gsl_vector_get(rn->v,j));
     }
-    dd_set_d(M->matrix[i][0],gsl_vector_get(rn->v,p->nb_variables));
+    dd_set_d(M->matrix[i][0],(rb)*gsl_vector_get(rn->v,p->nb_variables));
   }
   /*dd_WriteMatrix(outfile, M);*/
   /* need to set the variables to eliminate */
@@ -355,6 +355,7 @@ void project(polytope *p,FILE *outfile,int formatcdd){
       set_addelem(delset,t);
     }
   }
+  dd_MatrixCanonicalize(&M,&impl_linset,&redset,&newpos,&err);
   M1=dd_BlockElimination(M, delset, &err);
   if (err!=dd_NoError) dd_WriteErrorMessages(stderr,err);
   dd_MatrixCanonicalize(&M1,&impl_linset,&redset,&newpos,&err);
