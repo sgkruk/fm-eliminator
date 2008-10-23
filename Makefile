@@ -1,28 +1,13 @@
-ALL:		parser.o lexer.o fm testcdd projection
+ALL:	fm
 
 GCCF1	= -Wall -Dgets=DONT_USE_GETS -Dlint $(DF) -g
 GCCF2	= -Wshadow -Wpointer-arith -Wnested-externs -Winline
-CFLAGS	= -I/usr/local/include  -I/opt/local/include -g  $(GCCF1) $(GCCF2)
-LOPT	= /opt/local/lib
-LUSR	= /usr/local/lib
+CFLAGS	=  $(GCCF1) $(GCCF2)
 ALLL    = -lgsl -lgslcblas -lcdd -lm
-TEST:		fm
-		./fm -p y2 <test.fm
-
-TEST0:		fm
-		./fm -v -r x <test0.fm
-
 TESTCUBE:		fm
-		./fm  -r x -r z <testcube.fm
-
-COVER:		cover.mod
-			glpsol --model cover.mod --output cover.solution
-
-testcdd:	t.c
-			cc -o testcdd t.c ${ALLL}
-
-projection:	projection.c
-			cc -o projection projection.c ${ALLL}
+		./fm  -i testcube.fm -o junk  -p x1
+		diff -w -q junk testcube.out
+		rm junk
 
 lexer.o:	lexer.l parser.c fm.h
 		flex -o lexer.c lexer.l 
@@ -36,4 +21,4 @@ fm.o:		fm.c
 		cc -c ${CFLAGS} fm.c 
 
 fm:		fm.o lexer.o parser.o 
-		cc -o fm fm.o lexer.o parser.o  /usr/local/lib/libcdd.a ${ALLL}
+		cc -o fm fm.o lexer.o parser.o  ${ALLL}
