@@ -4,6 +4,7 @@ GCCF1	= -Wall -Dgets=DONT_USE_GETS -Dlint $(DF) -g
 GCCF2	= -Wshadow -Wpointer-arith -Wnested-externs -Winline
 CFLAGS	=  $(GCCF1) $(GCCF2)
 ALLL    = -lgsl -lgslcblas -lcdd -lm
+
 TESTCUBE:		fm
 		./fm  -i testcube.fm -o junk  -p x1
 		diff -w -q junk testcube.out

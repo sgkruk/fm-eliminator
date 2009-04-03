@@ -23,7 +23,7 @@ extern int yyparse(void);
 /*
   The code related to the reading of the constraints and storing
   in a general-purpose structure.
- */
+*/
 term_node *new_term_node(char *variable,double coefficient,int column_index){
   term_node *tnp;
   tnp = (term_node *)malloc(sizeof(term_node));
@@ -95,10 +95,10 @@ variable_node *valid_variable(char *varname){
 variable_node *valid_regex_variable(polytope p,char *varname){
   variable_node *vn=0;
   for(vn = p.variable_list; vn; vn=vn->next){
-	if (vn->keep) 
-	  continue;					/* Been there already */
-	else if (!strncmp(vn->varname,varname,strlen(varname)))
-	  return vn;
+    if (vn->keep) 
+      continue;					/* Been there already */
+    else if (!strncmp(vn->varname,varname,strlen(varname)))
+      return vn;
   }
   return 0;
 }
@@ -123,23 +123,23 @@ void extract_vars(polytope *p){
     for (tn=c->first; tn; tn=tn->next){
       hashelement.key=strdup(tn->variable);
       if (!(found=hsearch(hashelement,FIND))){		/* Not there yet */
-		nb_variables++;
-		vn=new_variable_node(tn->variable);
-		if (!vn->keep) p->nb_to_eliminate++;
-		if (!p->variable_list){
-		  p->variable_list=vn;
-		  insque(vn,0);
-		} else {
-		  insque(vn,lvn);
-		}
-		vn->column_index=column_index++;		/* set column index */
-		tn->column_index=vn->column_index;
-		lvn=vn;
-		hashelement.data=vn;
-		hsearch(hashelement,ENTER);
+	nb_variables++;
+	vn=new_variable_node(tn->variable);
+	if (!vn->keep) p->nb_to_eliminate++;
+	if (!p->variable_list){
+	  p->variable_list=vn;
+	  insque(vn,0);
+	} else {
+	  insque(vn,lvn);
+	}
+	vn->column_index=column_index++;		/* set column index */
+	tn->column_index=vn->column_index;
+	lvn=vn;
+	hashelement.data=vn;
+	hsearch(hashelement,ENTER);
       } else {			/* Already in there */
-		vn=(variable_node *)found->data;
-		tn->column_index=vn->column_index;
+	vn=(variable_node *)found->data;
+	tn->column_index=vn->column_index;
       }
     }
   }
@@ -147,14 +147,14 @@ void extract_vars(polytope *p){
   p->nb_variables=nb_variables;
   /* Now the reverse index on the variable names */
   p->variable_array=
-	(variable_node **)malloc(nb_variables*sizeof(variable_node *));
+    (variable_node **)malloc(nb_variables*sizeof(variable_node *));
   for(i=0,vn=p->variable_list; vn; vn=vn->next,i++)
     p->variable_array[i]=vn;
 }
 /*
   The following code handles the numerical part of the Fourier-Motzkin 
   elimination process.
- */
+*/
 row_node *new_row_node(int size){
   row_node *rn = (row_node *)malloc(sizeof(row_node));
   rn->v = gsl_vector_alloc(size);
@@ -171,7 +171,7 @@ row_node *new_vector_from_constraint(constraint *c,int vsize){
   }
   gsl_vector_set(rn->v,vsize-1,(c->rhs));
   /*display_constraint(c);
-	gsl_vector_fprintf(stdout,rn->v,"%f");*/
+    gsl_vector_fprintf(stdout,rn->v,"%f");*/
 
   return rn;
 }
@@ -182,18 +182,18 @@ void fill_rows_from_constraints(polytope *p){
   row_node *rn,*rn0,*lrn;
   p->nb_rows=0;
   for (c = p->constraint_list; c; c = c->next){
-	switch (c->direction){
-	case 0: 
-	case 1: 
-	case -1:
-	  rn = new_vector_from_constraint(c,nb_variables+1);
-	  rn0=0; p->nb_rows++; break;
-	case 2:
-	  rn = new_vector_from_constraint(c,nb_variables+1);
-	  rn0 = new_vector_from_constraint(c,nb_variables+1);
-	  p->nb_rows+=2; 
-	  break;
-	}
+    switch (c->direction){
+    case 0: 
+    case 1: 
+    case -1:
+      rn = new_vector_from_constraint(c,nb_variables+1);
+      rn0=0; p->nb_rows++; break;
+    case 2:
+      rn = new_vector_from_constraint(c,nb_variables+1);
+      rn0 = new_vector_from_constraint(c,nb_variables+1);
+      p->nb_rows+=2; 
+      break;
+    }
     if (!p->row_list){
       p->row_list=rn;
       insque(rn,0);
@@ -201,10 +201,10 @@ void fill_rows_from_constraints(polytope *p){
       insque(rn,lrn);
     }
     lrn=rn;
-	if (rn0){
-	  insque(rn0,rn);
-	  lrn=rn0;
-	}
+    if (rn0){
+      insque(rn0,rn);
+      lrn=rn0;
+    }
   }
 }
 variable_node *new_variable_node(char *varname){
@@ -220,17 +220,17 @@ void display_rows(polytope p){
     for(i=0;i<p.nb_variables;i++){
       double val=gsl_vector_get(rn->v,i);
       if (val){
-		vn=p.variable_array[i];
-		printf("%+5.5f %4s ",val,vn->varname);
+	vn=p.variable_array[i];
+	printf("%+5.5f %4s ",val,vn->varname);
       } else {
-		printf("              ");
+	printf("              ");
       }
     }
-	switch(rn->direction){
-	case -1: printf(" <= "); break;
-	case  0: printf("  = "); break;
-	case +1: printf(" >= "); break;
-	}
+    switch(rn->direction){
+    case -1: printf(" <= "); break;
+    case  0: printf("  = "); break;
+    case +1: printf(" >= "); break;
+    }
     printf(" %5.f\n", gsl_vector_get(rn->v,p.nb_variables));
 	
   }
@@ -242,7 +242,7 @@ void fm_eliminate_pair(polytope *p,row_node *rp,row_node *rn){
   gsl_vector_memcpy(r->v,rn->v);
   gsl_vector_add(r->v,rp->v);
   for(last=p->row_list;last && last->next;last=last->next)
-	/* nothing*/;
+    /* nothing*/;
   insque(r,last);
   return;
 }
@@ -250,11 +250,11 @@ void fm_eliminate_pair(polytope *p,row_node *rp,row_node *rn){
 int delete_processed_rows(polytope *p){
   row_node *r;
   for (r=p->row_list;r;r=r->next)
-	if (r->deleterow){
-	  if (r==p->row_list)
-		p->row_list=r->next;	/* In case we are deleting the first */
-	  remque(r);
-	}
+    if (r->deleterow){
+      if (r==p->row_list)
+	p->row_list=r->next;	/* In case we are deleting the first */
+      remque(r);
+    }
   
   return 0;
 }
@@ -453,14 +453,14 @@ int main(int argc, char **argv)
   
   fill_rows_from_constraints(&pgm);
   if (verbose>3) {
-	printf("The rows before elimination are\n");
-	display_rows(pgm);
+    printf("The rows before elimination are\n");
+    display_rows(pgm);
   }
   /*
-  fm(&pgm);
-  printf("The rows after elimination are\n");
-  display_rows(pgm);
-  return 0;
+    fm(&pgm);
+    printf("The rows after elimination are\n");
+    display_rows(pgm);
+    return 0;
   */
   project(&pgm,outfile,formatcdd);				/* Using CDD */
   return 0;
