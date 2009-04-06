@@ -1,8 +1,9 @@
 ALL:	fm
 
+CDD     =  /home/sgkruk/software/cddlib-094f/lib-src
 GCCF1	= -Wall -Dgets=DONT_USE_GETS -Dlint $(DF) -g
 GCCF2	= -Wshadow -Wpointer-arith -Wnested-externs -Winline
-CFLAGS	=  $(GCCF1) $(GCCF2)
+CFLAGS	=  $(GCCF1) $(GCCF2) -I$(CDD)
 ALLL    = -lgsl -lgslcblas -lcdd -lm
 
 TESTCUBE:		fm
